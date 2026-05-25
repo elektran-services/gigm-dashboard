@@ -24,7 +24,7 @@ export interface MileageJsonReport {
     scheduledAlmostDue: number;
     preventiveAlmostDue: number;
   };
-  vehicles: unknown[];
+  vehicles: Array<{ imei: string }>;
 }
 
 export function ensureMileageJsonDir() {
