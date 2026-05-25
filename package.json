@@ -1,0 +1,47 @@
+{
+  "name": "mantrac-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:next monitor",
+    "dev:next": "next dev -p 3005",
+    "overspeed": "node saveOverspeedReport.js",
+    "dev:all": "npm-run-all --parallel dev:next overspeed monitor",
+    "monitor": "node monitoringService.js",
+    "build": "next build",
+    "start": "next start -p 3005",
+    "lint": "eslint",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop all",
+    "pm2:restart": "pm2 restart all",
+    "pm2:status": "pm2 status",
+    "pm2:logs": "pm2 logs",
+    "pm2:monit": "pm2 monit",
+    "pm2:delete": "pm2 delete all"
+  },
+  "dependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.4.1",
+    "exceljs": "^4.4.0",
+    "md5": "^2.3.0",
+    "next": "16.2.4",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^8.0.5",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/nodemailer": "^8.0.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "npm-run-all": "^4.1.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
