@@ -129,6 +129,7 @@ remainingKm = intervalKm − distanceSinceReferenceKm
 | *(none)* | Latest report (`mileage_json/latest.json`) |
 | `?list=1` | Available report dates |
 | `?date=YYYY-MM-DD` | Report for that date |
+| `?imei=...` | Single vehicle from stored JSON (`filteredByImei` in response) |
 
 **Authentication** (when `MILEAGE_API_KEY` is set):
 
@@ -181,7 +182,16 @@ remainingKm = intervalKm − distanceSinceReferenceKm
 }
 ```
 
-**Filter examples (client-side):**
+**Single vehicle (server-side filter):**
+
+```http
+GET /api/mileage-data?imei=358657103711920&apiKey=your-secret-key
+GET /api/mileage-data?date=2026-05-24&imei=358657103711920&apiKey=your-secret-key
+```
+
+**Dashboard UI** — `POST /api/dashboard/mileage-json` with `{ "token": "...", "imei": "358657103711920" }` (optional `date`).
+
+**Filter examples (client-side on full fleet):**
 
 ```javascript
 const due5000 = data.vehicles.filter((v) => v.scheduledMaintenance?.atThreshold);
@@ -268,6 +278,16 @@ Expect **200** with full JSON. Without the header (when key is set): **401 Unaut
 | URL | `http://127.0.0.1:3001/api/mileage-data?date=2026-05-18` |
 | Header | `X-Api-Key` |
 
+### One vehicle
+
+| | |
+|--|--|
+| Method | `GET` |
+| URL | `http://127.0.0.1:3005/api/mileage-data?imei=358657103711920` |
+| Header | `X-Api-Key` |
+
+Response includes `filteredByImei` and a single entry in `vehicles` (or empty if IMEI not in that report).
+
 ### Trigger scan (optional)
 
 | | |
@@ -318,7 +338,7 @@ Header: `X-Api-Key: {{mileageApiKey}}`
 2. `MILEAGE_API_KEY` (secure channel — not in git).
 3. This document or the endpoint summary:
    - `GET /api/mileage-data` with `X-Api-Key`
-   - Optional `?list=1` and `?date=YYYY-MM-DD`
+   - Optional `?list=1`, `?date=YYYY-MM-DD`, and `?imei=DEVICE_IMEI`
 4. They do **not** need GPS51 credentials for reading JSON.
 
 ---

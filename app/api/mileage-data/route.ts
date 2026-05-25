@@ -29,6 +29,7 @@ function validateApiKey(request: NextRequest): boolean {
  * Query:
  *   - date=YYYY-MM-DD  — specific report (default: latest.json)
  *   - list=1           — return available report dates only
+ *   - imei=...         — filter to one vehicle (stored JSON)
  *
  * Auth (optional): set MILEAGE_API_KEY in env, pass X-Api-Key header or ?apiKey=
  */
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
   }
 
   const date = searchParams.get('date')?.trim();
+  const imei = searchParams.get('imei')?.trim();
   const filename = date ? mileageJsonFilenameForDate(date) : MILEAGE_LATEST_FILENAME;
   const report = readMileageJsonReport(filename);
 
@@ -63,6 +65,16 @@ export async function GET(request: NextRequest) {
       },
       { status: 404 }
     );
+  }
+
+  if (imei) {
+    const vehicles = report.vehicles.filter((v) => v.imei === imei);
+    return NextResponse.json({
+      ...report,
+      deviceCount: vehicles.length,
+      vehicles,
+      filteredByImei: imei,
+    });
   }
 
   return NextResponse.json(report);

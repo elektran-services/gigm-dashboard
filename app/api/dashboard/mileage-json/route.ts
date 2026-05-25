@@ -9,7 +9,7 @@ import {
 
 /**
  * POST /api/dashboard/mileage-json
- * Body: { token?, list?: true, date?: "YYYY-MM-DD" }
+ * Body: { token?, list?: true, date?: "YYYY-MM-DD", imei?: string }
  * Session-authenticated read of mileage_json snapshots (dashboard UI).
  */
 export async function POST(request: NextRequest) {
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const date = typeof body.date === 'string' ? body.date.trim() : '';
+  const imei = typeof body.imei === 'string' ? body.imei.trim() : '';
   const filename = date ? mileageJsonFilenameForDate(date) : MILEAGE_LATEST_FILENAME;
   const report = readMileageJsonReport(filename);
 
@@ -51,6 +52,16 @@ export async function POST(request: NextRequest) {
       },
       { status: 404 }
     );
+  }
+
+  if (imei) {
+    const vehicles = report.vehicles.filter((v) => v.imei === imei);
+    return NextResponse.json({
+      ...report,
+      deviceCount: vehicles.length,
+      vehicles,
+      filteredByImei: imei,
+    });
   }
 
   return NextResponse.json(report);
