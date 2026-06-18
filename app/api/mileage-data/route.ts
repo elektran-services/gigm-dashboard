@@ -5,6 +5,7 @@ import {
   mileageJsonFilenameForDate,
   readMileageJsonReport,
 } from '@/lib/mileageJsonStorage';
+import { buildMileageImeiResponse } from '@/lib/mileageLegacyFlat';
 
 function unauthorized() {
   return NextResponse.json(
@@ -29,7 +30,7 @@ function validateApiKey(request: NextRequest): boolean {
  * Query:
  *   - date=YYYY-MM-DD  — specific report (default: latest.json)
  *   - list=1           — return available report dates only
- *   - imei=...         — filter to one vehicle (stored JSON)
+ *   - imei=...         — filter to one vehicle; includes legacy flat fields at top
  *
  * Auth (optional): set MILEAGE_API_KEY in env, pass X-Api-Key header or ?apiKey=
  */
@@ -69,12 +70,7 @@ export async function GET(request: NextRequest) {
 
   if (imei) {
     const vehicles = report.vehicles.filter((v) => v.imei === imei);
-    return NextResponse.json({
-      ...report,
-      deviceCount: vehicles.length,
-      vehicles,
-      filteredByImei: imei,
-    });
+    return NextResponse.json(buildMileageImeiResponse(report, vehicles, imei));
   }
 
   return NextResponse.json(report);

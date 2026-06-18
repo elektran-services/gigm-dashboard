@@ -248,7 +248,7 @@ MONITOR_USERNAME=
 MONITOR_TOKEN=
 MONITOR_PASSWORD=
 NEXT_PUBLIC_HERE_API_KEY=
-NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3005
 ```
 
 Can use **one shared API key** with mileage (`MILEAGE_API_KEY`) or a separate `IDLE_STOP_API_KEY` — recommend **separate keys** per API for least privilege.
@@ -363,7 +363,7 @@ Reuse:
 
 ## Postman quick test
 
-1. **Scan** — `POST http://127.0.0.1:3001/api/idle-stop-scheduled`
+1. **Scan** — `POST http://127.0.0.1:3005/api/idle-stop-scheduled`
 
 ```json
 {
@@ -375,12 +375,12 @@ Reuse:
 
 `reportDate` is optional (defaults to **yesterday**). Runtime ~5–8s per device.
 
-2. **Read latest** — `GET http://127.0.0.1:3001/api/idle-stop-data`  
+2. **Read latest** — `GET http://127.0.0.1:3005/api/idle-stop-data`  
    Header: `X-Api-Key: your-IDLE_STOP_API_KEY`
 
-3. **List dates** — `GET http://127.0.0.1:3001/api/idle-stop-data?list=1`
+3. **List dates** — `GET http://127.0.0.1:3005/api/idle-stop-data?list=1`
 
-4. **One vehicle** — `GET http://127.0.0.1:3001/api/idle-stop-data?imei=358657103711920`
+4. **One vehicle** — `GET http://127.0.0.1:3005/api/idle-stop-data?imei=358657103711920`
 
 ### Response arrays per vehicle
 

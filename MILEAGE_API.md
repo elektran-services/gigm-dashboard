@@ -36,7 +36,7 @@ MILEAGE_API_KEY=your-long-random-secret
 NEXT_PUBLIC_HERE_API_KEY=your-here-key
 
 # Local server URL (monitoring service)
-NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3005
 ```
 
 ### Generating `MILEAGE_API_KEY`
@@ -129,14 +129,27 @@ remainingKm = intervalKm − distanceSinceReferenceKm
 | *(none)* | Latest report (`mileage_json/latest.json`) |
 | `?list=1` | Available report dates |
 | `?date=YYYY-MM-DD` | Report for that date |
-| `?imei=...` | Single vehicle from stored JSON (`filteredByImei` in response) |
+| `?imei=...` | Single vehicle; **legacy flat fields** at top + full GIGM JSON below |
 
-**Authentication** (when `MILEAGE_API_KEY` is set):
+**When `?imei=` is set**, the response includes **Safetrack-style fields first**, then the full GIGM report:
 
-- Header: `X-Api-Key: your-secret-key` **(recommended)**
-- Or query: `?apiKey=your-secret-key`
+| Legacy field | Source |
+|--------------|--------|
+| `longitude` | `vehicles[0].location.longitude` |
+| `latitude` | `vehicles[0].location.latitude` |
+| `speed` | `location.speedKmh` as `"0.00"` string |
+| `imei` | `vehicles[0].imei` |
+| `device` | `vehicles[0].deviceName` |
+| `time` | `location.positionUpdatedAt` → `YYYY-MM-DD HH:mm:ss` (UTC) |
+| `cumulativeDistance` | `vehicles[0].currentOdometerKm` as string |
+| `status` | `"ok"` or `"error"` (legacy success flag) |
+| `msg` | `"Data returned successfully"` or error text |
 
-**Example response shape:**
+GIGM numeric report status is **`apiStatus`** (`0` = OK) when `imei` is present — legacy `status` is a string and must not be confused with `apiStatus`.
+
+Fleet requests **without** `imei` return the GIGM format only (`status: 0`, no legacy block).
+
+**Example response shape (fleet, no `imei`):**
 
 ```json
 {
@@ -182,14 +195,38 @@ remainingKm = intervalKm − distanceSinceReferenceKm
 }
 ```
 
-**Single vehicle (server-side filter):**
+**Single vehicle (`?imei=`) — legacy + GIGM combined:**
 
 ```http
 GET /api/mileage-data?imei=358657103711920&apiKey=your-secret-key
-GET /api/mileage-data?date=2026-05-24&imei=358657103711920&apiKey=your-secret-key
+GET /api/mileage-data?date=2026-06-17&imei=358657103711920&apiKey=your-secret-key
 ```
 
-**Dashboard UI** — `POST /api/dashboard/mileage-json` with `{ "token": "...", "imei": "358657103711920" }` (optional `date`).
+```json
+{
+  "longitude": 3.3680516666666667,
+  "latitude": 6.518776666666667,
+  "speed": "0.00",
+  "imei": "358657103711920",
+  "device": "DKA 592 XB",
+  "time": "2026-06-17 19:59:01",
+  "cumulativeDistance": "131973.254",
+  "status": "ok",
+  "msg": "Data returned successfully",
+  "cause": "OK",
+  "generatedAt": "2026-06-17T20:00:27.915Z",
+  "asOfDate": "2026-06-17",
+  "apiStatus": 0,
+  "deviceCount": 1,
+  "vehicles": [ "..." ],
+  "filteredByImei": "358657103711920"
+}
+```
+
+**Authentication** (when `MILEAGE_API_KEY` is set):
+
+- Header: `X-Api-Key: your-secret-key` **(recommended)**
+- Or query: `?apiKey=your-secret-key`
 
 **Filter examples (client-side on full fleet):**
 
@@ -233,7 +270,7 @@ pm2 restart monitoring-service
 ### Manual
 
 ```bash
-curl -X POST http://127.0.0.1:3001/api/mileage-scheduled \
+curl -X POST http://127.0.0.1:3005/api/mileage-scheduled \
   -H "Content-Type: application/json" \
   -d '{"token":"YOUR_TOKEN","username":"GIGMobility"}'
 ```
@@ -242,7 +279,7 @@ PowerShell:
 
 ```powershell
 $body = @{ token = "YOUR_TOKEN"; username = "GIGMobility" } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://127.0.0.1:3001/api/mileage-scheduled" `
+Invoke-RestMethod -Uri "http://127.0.0.1:3005/api/mileage-scheduled" `
   -Method POST -Body $body -ContentType "application/json" -TimeoutSec 600
 ```
 
@@ -250,14 +287,14 @@ Invoke-RestMethod -Uri "http://127.0.0.1:3001/api/mileage-scheduled" `
 
 ## Postman testing
 
-Base URL (local): `http://127.0.0.1:3001`
+Base URL (local): `http://127.0.0.1:3005`
 
 ### Latest report
 
 | | |
 |--|--|
 | Method | `GET` |
-| URL | `http://127.0.0.1:3001/api/mileage-data` |
+| URL | `http://127.0.0.1:3005/api/mileage-data` |
 | Header | `X-Api-Key` = value from `MILEAGE_API_KEY` in `.env.local` |
 
 Expect **200** with full JSON. Without the header (when key is set): **401 Unauthorized**.
@@ -267,7 +304,7 @@ Expect **200** with full JSON. Without the header (when key is set): **401 Unaut
 | | |
 |--|--|
 | Method | `GET` |
-| URL | `http://127.0.0.1:3001/api/mileage-data?list=1` |
+| URL | `http://127.0.0.1:3005/api/mileage-data?list=1` |
 | Header | `X-Api-Key` |
 
 ### Report by date
@@ -275,7 +312,7 @@ Expect **200** with full JSON. Without the header (when key is set): **401 Unaut
 | | |
 |--|--|
 | Method | `GET` |
-| URL | `http://127.0.0.1:3001/api/mileage-data?date=2026-05-18` |
+| URL | `http://127.0.0.1:3005/api/mileage-data?date=2026-05-18` |
 | Header | `X-Api-Key` |
 
 ### One vehicle
@@ -293,7 +330,7 @@ Response includes `filteredByImei` and a single entry in `vehicles` (or empty if
 | | |
 |--|--|
 | Method | `POST` |
-| URL | `http://127.0.0.1:3001/api/mileage-scheduled` |
+| URL | `http://127.0.0.1:3005/api/mileage-scheduled` |
 | Header | `Content-Type: application/json` |
 | Body (raw JSON) | `{ "token": "...", "username": "GIGMobility" }` |
 
@@ -303,7 +340,7 @@ No `X-Api-Key` on this endpoint.
 
 | Variable | Example |
 |----------|---------|
-| `baseUrl` | `http://127.0.0.1:3001` |
+| `baseUrl` | `http://127.0.0.1:3005` |
 | `mileageApiKey` | *(from `.env.local`)* |
 
 URL: `{{baseUrl}}/api/mileage-data`  
