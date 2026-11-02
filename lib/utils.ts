@@ -149,3 +149,24 @@ function handleSessionExpired(): void {
     window.location.href = '/?error=session_expired';
   }
 }
+
+export function formatLitres(value: number | null | undefined, digits = 2): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  // Non-breaking space keeps "69.01 L" on one line in narrow table cells
+  return `${value.toFixed(digits)}\u00A0L`;
+}
+
+export function formatKm(value: number | null | undefined, digits = 1): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  return `${value.toFixed(digits)} km`;
+}
+
+export function ymdDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function todayYmd(): string {
+  return new Date().toISOString().slice(0, 10);
+}

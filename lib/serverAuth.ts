@@ -4,6 +4,31 @@
  */
 
 import { buildGPS51LoginUrl } from './config';
+import { ensureGps51Session, getCachedUsername } from '@/lib/gps51Session';
+
+/** Prefer live session token; fall back to client/env token. */
+export async function resolveServerToken(clientToken?: string | null): Promise<string> {
+  if (clientToken && clientToken !== 'env') return clientToken;
+  const session = await ensureGps51Session();
+  return session.token;
+}
+
+export async function resolveServerUsername(clientUsername?: string | null): Promise<string> {
+  if (clientUsername && clientUsername !== 'fuel-monitor') return clientUsername;
+  try {
+    const session = await ensureGps51Session();
+    return session.username;
+  } catch {
+    return getCachedUsername();
+  }
+}
+
+export function getDefaultDevices(): string[] {
+  return String(process.env.GPS51_DEVICES || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 interface TokenRefreshResult {
   success: boolean;

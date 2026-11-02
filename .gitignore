@@ -66,6 +66,9 @@ next-env.d.ts
 /parking_reports/*
 !/parking_reports/.gitkeep
 
+# GPS51 fuel oil-report disk cache
+/.cache/
+
 # runtime logs
 /logs/
 

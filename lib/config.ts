@@ -18,6 +18,10 @@ export const APP_CONFIG = {
   NAME: process.env.NEXT_PUBLIC_APP_NAME || 'GIGMotors Dashboard',
   VERSION: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
   SESSION_TIMEOUT: parseInt(process.env.SESSION_TIMEOUT || '3600000', 10),
+  /** GPS51 oil-report timezone offset (Nigeria ≈ 1). */
+  DEFAULT_OFFSET: Number(
+    process.env.NEXT_PUBLIC_DEFAULT_OFFSET || process.env.GPS51_OFFSET || 1
+  ),
 } as const;
 
 export const MONITORING_CONFIG = {

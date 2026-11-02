@@ -3,30 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { getUserData, clearAuth, getAuthToken } from "@/lib/auth";
-import MileageJsonReport from "./components/MileageJsonReport";
-import IdleStopJsonReport from "./components/IdleStopJsonReport";
-
-type Bucket = { count: number; latestReportDate: string | null };
+import { getUserData, clearAuth } from "@/lib/auth";
+import DailyFuelPanel from "./components/fuel/DailyFuelPanel";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userData, setUserData] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeMenu, setActiveMenu] = useState("dashboard");
-  const [reportStats, setReportStats] = useState<{
-    mileageJson: Bucket;
-    idleStopJson: Bucket;
-    generatedAt: string | null;
-    loading: boolean;
-    error: string | null;
-  }>({
-    mileageJson: { count: 0, latestReportDate: null },
-    idleStopJson: { count: 0, latestReportDate: null },
-    generatedAt: null,
-    loading: true,
-    error: null,
-  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
@@ -35,58 +18,8 @@ export default function DashboardPage() {
       router.push("/");
     } else {
       setUserData(data);
-      fetchReportStats();
     }
   }, [router]);
-
-  const fetchReportStats = async () => {
-    try {
-      const token = getAuthToken();
-      if (!token) {
-        setReportStats((prev) => ({ ...prev, loading: false, error: "Not logged in" }));
-        return;
-      }
-
-      const res = await fetch("/api/dashboard-stats", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ token }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.status !== 0) {
-        setReportStats((prev) => ({
-          ...prev,
-          loading: false,
-          error: data.cause || "Failed to load report stats",
-        }));
-        return;
-      }
-
-      setReportStats({
-        mileageJson: data.mileageJson,
-        idleStopJson: data.idleStopJson,
-        generatedAt: data.generatedAt ?? null,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
-      setReportStats((prev) => ({
-        ...prev,
-        loading: false,
-        error: "Could not load saved report counts",
-      }));
-    }
-  };
-
-  const handleRefresh = () => {
-    setReportStats((prev) => ({ ...prev, loading: true, error: null }));
-    fetchReportStats();
-  };
 
   const handleLogout = () => {
     clearAuth();
@@ -100,76 +33,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  const menuItems = [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: "mileage",
-      label: "Mileage Report",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: "idle-stop",
-      label: "Idle / Stop Report",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-      ),
-    },
-  ];
-
-  const menuHeaderLabel =
-    menuItems.find((item) => item.id === activeMenu)?.label ??
-    activeMenu.replace(/-/g, " ");
-
-  const reportCards = [
-    {
-      menu: "mileage" as const,
-      title: "Mileage Report",
-      desc: "Daily maintenance snapshots (5k / 10k km)",
-      folder: "mileage_json/",
-      bucket: reportStats.mileageJson,
-      accent: "from-emerald-500/15 to-teal-500/10 border-emerald-200/80",
-      iconBg: "bg-emerald-100 text-emerald-700",
-    },
-    {
-      menu: "idle-stop" as const,
-      title: "Idle / Stop Report",
-      desc: "Daily idle, stop, and ACC-off events",
-      folder: "idle_stop_json/",
-      bucket: reportStats.idleStopJson,
-      accent: "from-violet-500/15 to-purple-500/10 border-violet-200/80",
-      iconBg: "bg-violet-100 text-violet-700",
-    },
-  ];
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -188,20 +51,17 @@ export default function DashboardPage() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveMenu(item.id)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                activeMenu === item.id
-                  ? "bg-[#e31d00] text-gray-900 font-medium"
-                  : "text-gray-300 hover:bg-gray-800 hover:text-white font-normal"
-              }`}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
+          <div className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#e31d00] text-gray-900 font-medium">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+              />
+            </svg>
+            <span>Fuel Monitoring</span>
+          </div>
         </nav>
 
         <div className="px-3 pb-3">
@@ -271,82 +131,14 @@ export default function DashboardPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">{menuHeaderLabel}</h1>
+          <h1 className="text-xl font-semibold text-gray-900">Fuel Monitoring</h1>
           <div className="flex items-center gap-2">
             <p className="text-xs font-medium text-gray-900 truncate">{userData.nickname}</p>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-3 lg:p-6">
-          {activeMenu === "dashboard" && (
-            <>
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2.5">
-                <div>
-                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
-                    Welcome back, {userData.nickname}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-0.5 max-w-xl">
-                    JSON fleet reports generated by the monitoring service. Open a card to browse
-                    snapshots and download data.
-                  </p>
-                  {reportStats.generatedAt && !reportStats.loading && (
-                    <p className="text-xs text-gray-400 mt-2">
-                      Last refreshed {new Date(reportStats.generatedAt).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#e31d00] text-gray-900 font-medium hover:bg-[#c41900] border border-[#e31d00]/30 shadow-sm disabled:opacity-50"
-                  onClick={handleRefresh}
-                  disabled={reportStats.loading}
-                >
-                  Refresh
-                </button>
-              </div>
-
-              {reportStats.error && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm px-4 py-3">
-                  {reportStats.error}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-4xl">
-                {reportCards.map((card) => (
-                  <button
-                    key={card.menu}
-                    type="button"
-                    onClick={() => setActiveMenu(card.menu)}
-                    className={`text-left w-full flex flex-col min-h-[11rem] rounded-md border bg-gradient-to-br ${card.accent} p-4 shadow-sm hover:-translate-y-px transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#e31d00]`}
-                  >
-                    <h3 className="text-lg font-bold text-gray-900">{card.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{card.desc}</p>
-                    <p className="text-xs font-mono text-gray-500 mt-1">{card.folder}</p>
-                    <div className="mt-auto pt-3">
-                      {reportStats.loading ? (
-                        <div className="animate-pulse h-4 bg-white/70 rounded w-12" />
-                      ) : (
-                        <>
-                          <p className="text-2xl font-bold text-gray-900 tabular-nums">
-                            {card.bucket.count}{" "}
-                            <span className="text-xs font-medium text-gray-500 uppercase">
-                              saved files
-                            </span>
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            Latest {card.bucket.latestReportDate ?? "—"}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {activeMenu === "mileage" && <MileageJsonReport />}
-          {activeMenu === "idle-stop" && <IdleStopJsonReport />}
+          <DailyFuelPanel />
         </main>
       </div>
     </div>
