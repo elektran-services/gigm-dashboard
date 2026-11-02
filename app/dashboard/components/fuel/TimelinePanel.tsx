@@ -19,7 +19,6 @@ export default function TimelinePanel() {
     loading: loadingDevices,
     error: deviceError,
     exactImei,
-    deviceCount,
   } = useDevices();
   const [selectedDevice, setSelectedDevice] = useState("");
   const [startDate, setStartDate] = useState(ymdDaysAgo(3));
@@ -110,7 +109,6 @@ export default function TimelinePanel() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         submitLabel="Load from cache"
-        deviceCount={deviceCount}
       />
 
       {cachedReports.length > 0 && (

@@ -26,7 +26,6 @@ export default function EventsPanel() {
     loading: loadingDevices,
     error: deviceError,
     exactImei,
-    deviceCount,
   } = useDevices();
   const [selectedDevice, setSelectedDevice] = useState("");
   const [startDate, setStartDate] = useState(ymdDaysAgo(30));
@@ -99,7 +98,6 @@ export default function EventsPanel() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         submitLabel="Load events"
-        deviceCount={deviceCount}
       />
 
       <div className="flex flex-wrap gap-2">

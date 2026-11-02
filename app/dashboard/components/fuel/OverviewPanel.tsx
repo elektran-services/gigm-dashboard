@@ -40,7 +40,6 @@ export default function OverviewPanel() {
     loading: loadingDevices,
     error: deviceError,
     exactImei,
-    deviceCount,
   } = useDevices();
   const [selectedDevice, setSelectedDevice] = useState("");
   const [startDate, setStartDate] = useState(ymdDaysAgo(7));
@@ -166,7 +165,6 @@ export default function OverviewPanel() {
         submitLabel="Refresh"
         onExportExcel={exportExcel}
         exporting={exporting}
-        deviceCount={deviceCount}
       />
 
       {(error || deviceError) && (

@@ -11,12 +11,12 @@ interface Props {
   onDeviceChange: (id: string) => void;
   startDate: string;
   endDate: string;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
   onStartDateChange: (v: string) => void;
   onEndDateChange: (v: string) => void;
-  onStartTimeChange: (v: string) => void;
-  onEndTimeChange: (v: string) => void;
+  onStartTimeChange?: (v: string) => void;
+  onEndTimeChange?: (v: string) => void;
   onSubmit: () => void;
   loading?: boolean;
   searchQuery: string;
@@ -49,6 +49,11 @@ export default function DeviceFilters({
   onExportExcel,
   exporting,
 }: Props) {
+  const showTime = Boolean(onStartTimeChange && onEndTimeChange);
+  const canSubmit =
+    Boolean(selectedDevice && startDate && endDate) &&
+    (!showTime || Boolean(startTime && endTime));
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
@@ -88,12 +93,14 @@ export default function DeviceFilters({
             onChange={(e) => onStartDateChange(e.target.value)}
             className={inputClass}
           />
-          <input
-            type="time"
-            value={startTime}
-            onChange={(e) => onStartTimeChange(e.target.value)}
-            className={`${inputClass} mt-1`}
-          />
+          {showTime && (
+            <input
+              type="time"
+              value={startTime ?? "00:00"}
+              onChange={(e) => onStartTimeChange?.(e.target.value)}
+              className={`${inputClass} mt-1`}
+            />
+          )}
         </div>
         <div>
           <label className="block text-xs font-medium text-black mb-1">To</label>
@@ -103,19 +110,21 @@ export default function DeviceFilters({
             onChange={(e) => onEndDateChange(e.target.value)}
             className={inputClass}
           />
-          <input
-            type="time"
-            value={endTime}
-            onChange={(e) => onEndTimeChange(e.target.value)}
-            className={`${inputClass} mt-1`}
-          />
+          {showTime && (
+            <input
+              type="time"
+              value={endTime ?? "23:59"}
+              onChange={(e) => onEndTimeChange?.(e.target.value)}
+              className={`${inputClass} mt-1`}
+            />
+          )}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <button
           onClick={onSubmit}
-          disabled={loading || !selectedDevice || !startDate || !endDate || !startTime || !endTime}
+          disabled={loading || !canSubmit}
           className="bg-[#e31d00] hover:bg-[#c41900] text-white font-semibold py-2 px-4 rounded-lg text-sm disabled:opacity-50 border border-[#e31d00]/30"
         >
           {loading ? "Loading…" : submitLabel}
