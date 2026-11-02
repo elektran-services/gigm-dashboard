@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const CACHE_DIR = join(process.cwd(), '.cache', 'gps51');
@@ -62,7 +62,49 @@ function devicesFromBody(body: Record<string, unknown>): string[] {
   return [];
 }
 
-/** List cached GPS51 reports (metadata only — still parses file; payload kept out of return). */
+/**
+ * Cache files are one JSON object whose payload.records can be many megabytes.
+ * Listing only needs the header (savedAt, body, payload.status), which sits
+ * before "records". Reading that prefix avoids loading the whole track into RAM.
+ */
+function readCacheHeader(path: string): {
+  savedAt?: number;
+  action?: string;
+  body?: Record<string, unknown>;
+  status: number;
+} | null {
+  const size = statSync(path).size;
+  const fd = openSync(path, 'r');
+  try {
+    const take = Math.min(size, 8192);
+    const buf = Buffer.alloc(take);
+    readSync(fd, buf, 0, take, 0);
+    let text = buf.toString('utf8');
+    if (size > take) {
+      const cut = text.indexOf(',"records":');
+      if (cut === -1) return null;
+      text = `${text.slice(0, cut)}}}`;
+    }
+    const raw = JSON.parse(text) as {
+      savedAt?: number;
+      action?: string;
+      body?: Record<string, unknown>;
+      payload?: { status?: number };
+    };
+    return {
+      savedAt: raw.savedAt,
+      action: raw.action,
+      body: raw.body,
+      status: Number(raw.payload?.status ?? -1),
+    };
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** List cached GPS51 reports (metadata only — does not load track points). */
 export function listGps51CacheEntries(action?: string): Gps51CacheEntryMeta[] {
   ensureDir();
   if (!existsSync(CACHE_DIR)) return [];
@@ -73,12 +115,8 @@ export function listGps51CacheEntries(action?: string): Gps51CacheEntryMeta[] {
     if (action && !file.startsWith(`${action}_`)) continue;
     const path = join(CACHE_DIR, file);
     try {
-      const raw = JSON.parse(readFileSync(path, 'utf8')) as {
-        savedAt?: number;
-        action?: string;
-        body?: Record<string, unknown>;
-        payload?: { status?: number };
-      };
+      const raw = readCacheHeader(path);
+      if (!raw) continue;
       const body = raw.body || {};
       const savedAt = raw.savedAt || statSync(path).mtimeMs;
       out.push({
@@ -88,7 +126,7 @@ export function listGps51CacheEntries(action?: string): Gps51CacheEntryMeta[] {
         body,
         savedAt,
         ageMs: Date.now() - savedAt,
-        status: Number(raw.payload?.status ?? -1),
+        status: raw.status,
         devices: devicesFromBody(body),
         startday: body.startday != null ? String(body.startday) : undefined,
         endday: body.endday != null ? String(body.endday) : undefined,

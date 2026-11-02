@@ -211,6 +211,44 @@ export function detectAdditionsFromTimeline(
 
   const rejected: RejectedRise[] = [];
   const candidates: FillCand[] = [];
+  const times = sorted.map((p) => p.updatetime);
+
+  function lowerBound(target: number): number {
+    let lo = 0;
+    let hi = times.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (times[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  function upperBound(target: number): number {
+    let lo = 0;
+    let hi = times.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (times[mid] <= target) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /** updatetime >= start && updatetime <= end */
+  function between(start: number, end: number) {
+    return sorted.slice(lowerBound(start), upperBound(end));
+  }
+
+  /** updatetime >= start && updatetime < end */
+  function fromUntil(start: number, end: number) {
+    return sorted.slice(lowerBound(start), lowerBound(end));
+  }
+
+  /** updatetime > start && updatetime <= end */
+  function afterUntil(start: number, end: number) {
+    return sorted.slice(upperBound(start), upperBound(end));
+  }
 
   /**
    * Scan for step increases on the RAW gauge (not over-smoothed),
@@ -256,11 +294,8 @@ export function detectAdditionsFromTimeline(
     const startPt = prev;
     // Prefer last high-hold sample after peak (ignores absurd 130L spikes that settle to ~70)
     let endPt = sorted[peakIdx];
-    const settleSamples = sorted.filter(
-      (p) =>
-        p.updatetime >= endPt.updatetime &&
-        p.updatetime <= endPt.updatetime + 12 * 60 * 1000 &&
-        p.oilL >= startPt.oilL + 3
+    const settleSamples = between(endPt.updatetime, endPt.updatetime + 12 * 60 * 1000).filter(
+      (p) => p.oilL >= startPt.oilL + 3
     );
     if (settleSamples.length >= 3) {
       const settleMed = median(settleSamples.map((p) => p.oilL));
@@ -280,20 +315,14 @@ export function detectAdditionsFromTimeline(
     }
 
     // Context around the step: ±8 min for ACC/stop evidence
-    const ctx = sorted.filter(
-      (p) =>
-        p.updatetime >= startPt.updatetime - 8 * 60 * 1000 &&
-        p.updatetime <= endPt.updatetime + 5 * 60 * 1000
-    );
+    const ctx = between(startPt.updatetime - 8 * 60 * 1000, endPt.updatetime + 5 * 60 * 1000);
     const fracAccOff = ctx.length
       ? ctx.filter((p) => isAccOff(p.statusen)).length / ctx.length
       : 0;
     const fracStopped = ctx.length ? ctx.filter((p) => isStopped(p)).length / ctx.length : 0;
 
     // The step itself should not look like highway driving
-    const stepWindow = sorted.filter(
-      (p) => p.updatetime >= startPt.updatetime && p.updatetime <= endPt.updatetime
-    );
+    const stepWindow = between(startPt.updatetime, endPt.updatetime);
     const stepSpeeds = stepWindow
       .map((p) => saneSpeedKmh(p))
       .filter((s): s is number => s != null);
@@ -302,11 +331,7 @@ export function detectAdditionsFromTimeline(
       medStepSpeed != null && medStepSpeed > 25 && fracStopped < 0.35 && fracAccOff < 0.2;
 
     // Before plateau: last 10–15 min BEFORE the step (prefer ACC-off samples)
-    const beforePts = sorted.filter(
-      (p) =>
-        p.updatetime >= startPt.updatetime - 15 * 60 * 1000 &&
-        p.updatetime < startPt.updatetime
-    );
+    const beforePts = fromUntil(startPt.updatetime - 15 * 60 * 1000, startPt.updatetime);
     const beforeAcc = beforePts.filter((p) => isAccOff(p.statusen));
     const beforePlateau =
       plateauAverage((beforeAcc.length >= 3 ? beforeAcc : beforePts).map((p) => p.oilL)) ??
@@ -318,10 +343,9 @@ export function detectAdditionsFromTimeline(
      * - premature windows that later include the real fill still read ~full tank
      * - absurd spikes (130L) above the true ~70L hold are ignored
      */
-    const afterPts = sorted.filter(
-      (p) =>
-        p.updatetime > startPt.updatetime + 5 * 60 * 1000 &&
-        p.updatetime <= startPt.updatetime + 60 * 60 * 1000
+    const afterPts = afterUntil(
+      startPt.updatetime + 5 * 60 * 1000,
+      startPt.updatetime + 60 * 60 * 1000
     );
     // Prefer plateau clearly above the pre-fill baseline (the real full tank).
     // Use a firm margin so pre-fill slosh (~+5–10 L) cannot win over the true fill band.
@@ -407,11 +431,11 @@ export function detectAdditionsFromTimeline(
     }
 
     // Must still be high after they start moving again (or long parked hold)
-    const afterMove = sorted.filter(
-      (p) =>
-        p.updatetime > endPt.updatetime + 2 * 60 * 1000 &&
-        p.updatetime <= endPt.updatetime + 45 * 60 * 1000 &&
-        ((saneSpeedKmh(p) != null && (saneSpeedKmh(p) as number) > 5) || isAccOn(p.statusen))
+    const afterMove = afterUntil(
+      endPt.updatetime + 2 * 60 * 1000,
+      endPt.updatetime + 45 * 60 * 1000
+    ).filter(
+      (p) => (saneSpeedKmh(p) != null && (saneSpeedKmh(p) as number) > 5) || isAccOn(p.statusen)
     );
     const heldAfterMove =
       afterMove.length === 0
@@ -450,8 +474,8 @@ export function detectAdditionsFromTimeline(
     });
 
     // Skip only a little past this accepted step so a later real fill is not swallowed
-    const acceptIdx = sorted.findIndex((p) => p.updatetime >= endPt.updatetime);
-    i = Math.max(i, acceptIdx >= 0 ? acceptIdx : peakIdx);
+    const acceptIdx = lowerBound(endPt.updatetime);
+    i = Math.max(i, acceptIdx < sorted.length ? acceptIdx : peakIdx);
   }
 
   // Merge same station visit (time) then enforce 5 km spacing

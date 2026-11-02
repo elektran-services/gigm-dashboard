@@ -1,6 +1,6 @@
 /**
- * Mileage + idle/stop monitoring service.
- * Daily crons write mileage_json/ and idle_stop_json/ snapshots.
+ * Mileage, idle/stop, and fuel monitoring service.
+ * Daily crons write mileage_json/, idle_stop_json/, and .cache/gps51 fuel tracks.
  * Overspeed, trips, offline, and parking Excel crons remain disabled.
  */
 
@@ -18,6 +18,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
 const MILEAGE_CRON = process.env.MILEAGE_CRON || '0 20 * * *';
 /** Daily idle/stop JSON scan — 03:00 server local time (previous calendar day). */
 const IDLE_STOP_CRON = process.env.IDLE_STOP_CRON || '0 3 * * *';
+/** Daily fuel track — 04:30 server local time (previous calendar day). */
+const FUEL_CRON = process.env.FUEL_CRON || '30 4 * * *';
 let credentials = {
   token: process.env.MONITOR_TOKEN || '',
   username: process.env.MONITOR_USERNAME || '',
@@ -235,6 +237,68 @@ async function runMileageScheduled(reportDate = null) {
   }
 }
 
+async function runFuelScheduled(reportDate = null) {
+  const timeStr = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  console.log(`\n[FuelScheduled] ${timeStr}${reportDate ? ` reportDate=${reportDate}` : ' (yesterday)'}`);
+
+  try {
+    const requestBody = {
+      token: credentials.token,
+      username: credentials.username,
+    };
+    if (reportDate) requestBody.reportDate = reportDate;
+
+    let response = await fetch(`${API_URL}/api/fuel/scheduled`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+      timeout: 2 * 60 * 60 * 1000,
+    });
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error(`[FuelScheduled] Non-JSON (${response.status}): ${text.substring(0, 200)}`);
+      return;
+    }
+
+    let data = await response.json();
+
+    if (isTokenExpired(data)) {
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        requestBody.token = credentials.token;
+        response = await fetch(`${API_URL}/api/fuel/scheduled`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          timeout: 2 * 60 * 60 * 1000,
+        });
+        data = await response.json();
+      } else {
+        console.error('[FuelScheduled] Token refresh failed; skipping.');
+        return;
+      }
+    }
+
+    if (data.status === 0 || data.status === 8905) {
+      const summary = data.summary || {};
+      console.log(
+        `[FuelScheduled] ${data.reportDate || ''} saved=${summary.saved ?? 0} skipped=${summary.skipped ?? 0} failed=${summary.failed ?? 0} liveCalls=${data.liveCalls ?? 'n/a'}${summary.stoppedForQuota ? ' STOPPED quota' : ''}`
+      );
+      if (data.cause) console.error(`[FuelScheduled] ${data.cause}`);
+    } else {
+      console.error(`[FuelScheduled] Failed: ${data.cause || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error(`[FuelScheduled] Error: ${error.message}`);
+  }
+}
+
 function parseCronWallClock(cronExpr, fallbackHour, fallbackMinute) {
   const parts = String(cronExpr || '').trim().split(/\s+/);
   if (parts.length >= 2) {
@@ -249,6 +313,7 @@ function parseCronWallClock(cronExpr, fallbackHour, fallbackMinute) {
 
 const mileageClock = parseCronWallClock(MILEAGE_CRON, 20, 0);
 const idleStopClock = parseCronWallClock(IDLE_STOP_CRON, 3, 0);
+const fuelClock = parseCronWallClock(FUEL_CRON, 4, 30);
 
 function msUntilNextLocalWallClock(from, hour, minute) {
   const target = new Date(from.getFullYear(), from.getMonth(), from.getDate(), hour, minute, 0, 0);
@@ -264,11 +329,12 @@ function formatCountdown(ms) {
 
 async function startService() {
   console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log('║     GIGMotors Mileage + Idle/Stop JSON monitoring        ║');
+  console.log('║     GIGMotors Mileage + Idle/Stop + Fuel monitoring       ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
   console.log('Configuration:');
   console.log(`  - Mileage cron: ${MILEAGE_CRON} (daily JSON → mileage_json/)`);
   console.log(`  - Idle/stop cron: ${IDLE_STOP_CRON} (daily JSON → idle_stop_json/)`);
+  console.log(`  - Fuel cron: ${FUEL_CRON} (yesterday reportoiltime → .cache/gps51/)`);
   console.log(`  - Thresholds: 5000 km scheduled, 10000 km preventive`);
   console.log(`  - Developer APIs: GET ${API_URL}/api/mileage-data`);
   console.log(`                    GET ${API_URL}/api/idle-stop-data`);
@@ -299,15 +365,21 @@ async function startService() {
     console.log(`✅ Idle/stop JSON exists: idle_stop_${yesterdayStr}.json\n`);
   }
 
+  console.log(`⛽ Fuel catch-up for yesterday if that day's track is missing…\n`);
+  await runFuelScheduled();
+
   const msMileage = msUntilNextLocalWallClock(new Date(), mileageClock.hour, mileageClock.minute);
   const msIdleStop = msUntilNextLocalWallClock(new Date(), idleStopClock.hour, idleStopClock.minute);
+  const msFuel = msUntilNextLocalWallClock(new Date(), fuelClock.hour, fuelClock.minute);
   console.log('📅 Schedule:');
   console.log(`  - Next mileage run: ~${formatCountdown(msMileage)} (pattern ${MILEAGE_CRON})`);
-  console.log(`  - Next idle/stop run: ~${formatCountdown(msIdleStop)} (pattern ${IDLE_STOP_CRON})\n`);
+  console.log(`  - Next idle/stop run: ~${formatCountdown(msIdleStop)} (pattern ${IDLE_STOP_CRON})`);
+  console.log(`  - Next fuel run: ~${formatCountdown(msFuel)} (pattern ${FUEL_CRON})\n`);
   console.log('✅ Service started. Press Ctrl+C to stop.\n');
 
   let lastMileageCronStart = null;
   let lastIdleStopCronStart = null;
+  let lastFuelCronStart = null;
 
   const mileageCronJob = cron.schedule(MILEAGE_CRON, async () => {
     const t = new Date().toLocaleString();
@@ -333,13 +405,27 @@ async function startService() {
     }
   });
 
+  const fuelCronJob = cron.schedule(FUEL_CRON, async () => {
+    const t = new Date().toLocaleString();
+    lastFuelCronStart = t;
+    console.log(`\n🔔 [CRON fuel] START ${t} — ${FUEL_CRON}`);
+    try {
+      await runFuelScheduled();
+      console.log(`✅ [CRON fuel] END ${new Date().toLocaleString()}`);
+    } catch (error) {
+      console.error(`❌ [CRON fuel] ERROR`, error);
+    }
+  });
+
   console.log(`📋 Mileage cron: ${mileageCronJob ? 'SUCCESS' : 'FAILED'} — ${MILEAGE_CRON}`);
-  console.log(`📋 Idle/stop cron: ${idleStopCronJob ? 'SUCCESS' : 'FAILED'} — ${IDLE_STOP_CRON}\n`);
+  console.log(`📋 Idle/stop cron: ${idleStopCronJob ? 'SUCCESS' : 'FAILED'} — ${IDLE_STOP_CRON}`);
+  console.log(`📋 Fuel cron: ${fuelCronJob ? 'SUCCESS' : 'FAILED'} — ${FUEL_CRON}\n`);
 
   setInterval(async () => {
     const now = new Date();
     const msNextMileage = msUntilNextLocalWallClock(now, mileageClock.hour, mileageClock.minute);
     const msNextIdleStop = msUntilNextLocalWallClock(now, idleStopClock.hour, idleStopClock.minute);
+    const msNextFuel = msUntilNextLocalWallClock(now, fuelClock.hour, fuelClock.minute);
     let nextjsStatus = '🔴 DOWN';
     try {
       const res = await fetchNextJsHealth({ signal: AbortSignal.timeout(5000) });
@@ -355,6 +441,9 @@ async function startService() {
     );
     console.log(
       `   📅 Idle/stop ${IDLE_STOP_CRON} — next ~${formatCountdown(msNextIdleStop)} — last=${lastIdleStopCronStart || '—'}`
+    );
+    console.log(
+      `   📅 Fuel ${FUEL_CRON} — next ~${formatCountdown(msNextFuel)} — last=${lastFuelCronStart || '—'}`
     );
     console.log();
   }, 30 * 60 * 1000);

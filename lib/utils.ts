@@ -41,7 +41,21 @@ export async function apiCallWithAutoRefresh(
     }
     
     const response = await fetch(url, requestOptions);
-    return await response.json();
+    const text = await response.text();
+    const trimmed = text.trimStart();
+    if (!trimmed || trimmed.startsWith('<')) {
+      const timedOut = response.status === 502 || response.status === 504;
+      throw new Error(
+        timedOut
+          ? 'The server timed out while reading the saved fuel report. Choose a shorter date range and try again.'
+          : `The fuel service returned a web page (${response.status}) instead of data. Choose a shorter date range and try again.`
+      );
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error('The fuel service returned an unreadable response.');
+    }
   };
 
   let token = getAuthToken();

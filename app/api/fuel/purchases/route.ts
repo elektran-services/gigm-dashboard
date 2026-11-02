@@ -3,6 +3,7 @@ import { APP_CONFIG } from '@/lib/config';
 import { downsamplePoints, mapEventRow, mapTrackPoint } from '@/lib/fuel';
 import { detectAdditionsFromTimeline, mapsLink } from '@/lib/fuelAdditions';
 import { findBestCachedReport, formatCacheAge, listGps51CacheEntries } from '@/lib/gps51Cache';
+import { loadCachedOiltimeRecords } from '@/lib/fuelOiltimeCache';
 import { getDefaultDevices } from '@/lib/serverAuth';
 
 export type PurchaseOut = {
@@ -116,16 +117,23 @@ export async function POST(request: NextRequest) {
     }
 
     // --- 2) Local oiltime only (already on disk) — detect real fills ---
-    const oiltime = findBestCachedReport<{
-      status?: number;
-      records?: Record<string, unknown>[];
-    }>('reportoiltime', { devices, startday, endday, offset });
+    const mergedOiltime = loadCachedOiltimeRecords(deviceid, startday, endday, offset);
+    const oiltime = mergedOiltime
+      ? null
+      : findBestCachedReport<{
+          status?: number;
+          records?: Record<string, unknown>[];
+        }>('reportoiltime', { devices, startday, endday, offset });
 
-    if (oiltime && Number(oiltime.data.status) === 0) {
-      const rec =
-        (oiltime.data.records || []).find((r) => String(r.deviceid) === deviceid) ||
-        oiltime.data.records?.[0];
-      const rawPoints = ((rec?.records as Record<string, unknown>[]) || []).map(mapTrackPoint);
+    const oilRecords = mergedOiltime
+      ? mergedOiltime.records
+      : ((
+          (oiltime?.data.records || []).find((r) => String(r.deviceid) === deviceid) ||
+          oiltime?.data.records?.[0]
+        )?.records as Record<string, unknown>[] | undefined) || [];
+
+    if ((mergedOiltime && oilRecords.length) || (oiltime && Number(oiltime.data.status) === 0)) {
+      const rawPoints = oilRecords.map(mapTrackPoint);
       const detected = detectAdditionsFromTimeline(rawPoints, {
         minJumpL,
         gapMs: 20 * 60 * 1000,
@@ -242,9 +250,11 @@ export async function POST(request: NextRequest) {
         fromCache: true,
         liveCall: false,
         source: 'cached_oiltime_detected',
-        cacheAgeMs: oiltime.ageMs,
-        message: `Tank line + ${purchases.length} real station fill(s) from saved calibrated-gauge track (${formatCacheAge(oiltime.ageMs)}). No GPS51 call. Rise candidates ${detected.candidates} → after stop/plateau/location checks and merging nearby visits: ${purchases.length} real.`,
-        cacheBody: oiltime.cacheBody,
+        cacheAgeMs: oiltime?.ageMs ?? null,
+        message: mergedOiltime
+          ? `Tank line + ${purchases.length} real station fill(s) from saved days ${mergedOiltime.days.join(', ')}. No GPS51 call.`
+          : `Tank line + ${purchases.length} real station fill(s) from saved calibrated-gauge track (${formatCacheAge(oiltime?.ageMs || 0)}). No GPS51 call. Rise candidates ${detected.candidates} → after stop/plateau/location checks and merging nearby visits: ${purchases.length} real.`,
+        cacheBody: oiltime?.cacheBody ?? { devices, startday, endday, offset },
         purchases,
         tankSeries,
         pointCount: rawPoints.length,
