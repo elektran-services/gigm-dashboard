@@ -1,3 +1,5 @@
+import { normalizeSpeedKmh } from '@/lib/mileageLocation';
+
 /** GPS51 oil values are typically 1/100 litre. */
 export function oilToLitres(value: unknown): number | null {
   const n = Number(value);
@@ -40,7 +42,8 @@ export function mapTrackPoint(raw: Record<string, unknown>): FuelTrackPoint {
     oilL: oilToLitres(raw.totalad ?? raw.ad0 ?? raw.totaloil ?? raw.masteroil),
     tank1L: oilToLitres(raw.ad0 ?? raw.masteroil),
     distanceKm: metresToKm(raw.totaldistance),
-    speedKmh: Number.isFinite(speedMs) ? (speedMs / 1000) * 3.6 : null,
+    // GPS51 track/oil speed is usually ×1000 km/h (e.g. 74200 → 74.2), not m/s.
+    speedKmh: Number.isFinite(speedMs) ? normalizeSpeedKmh(speedMs) : null,
     lat: Number.isFinite(Number(raw.callat)) ? Number(raw.callat) : null,
     lon: Number.isFinite(Number(raw.callon)) ? Number(raw.callon) : null,
     statusen: String(raw.strstatusen || raw.strstatus || ''),

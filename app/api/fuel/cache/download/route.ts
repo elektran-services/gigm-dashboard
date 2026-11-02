@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import { readGps51CacheByKey } from '@/lib/gps51Cache';
+import { normalizeSpeedKmh } from '@/lib/mileageLocation';
 
 const KEY_RE = /^(reportoiltime|reportoildaily|reportoilrecord)_[a-f0-9]{24}$/;
 
@@ -103,8 +104,8 @@ export async function GET(request: NextRequest) {
         const points = ((rec.records as Record<string, unknown>[]) || []).slice().reverse();
         for (const p of points) {
           index += 1;
-          const speedMs = Number(p.speed);
-          const speedKmh = Number.isFinite(speedMs) ? Number(((speedMs / 1000) * 3.6).toFixed(2)) : 0;
+          const speedRaw = Number(p.speed);
+          const speedKmh = Number.isFinite(speedRaw) ? normalizeSpeedKmh(speedRaw) ?? 0 : 0;
           ws.addRow({
             index,
             deviceid,
