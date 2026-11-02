@@ -89,9 +89,9 @@ export default function DailyFuelPanel() {
     deviceCount,
   } = useDevices();
   const [selectedDevice, setSelectedDevice] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [datesInitialized, setDatesInitialized] = useState(false);
+  const [startDate, setStartDate] = useState(ymdDaysAgo(3));
+  const [endDate, setEndDate] = useState(todayYmd());
+  const [datesTouched, setDatesTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -157,19 +157,21 @@ export default function DailyFuelPanel() {
     })();
   }, []);
 
-  // Initialize date pickers from cache range (only once), then let user freely adjust
+  // Fill From/To from a saved report until the user edits the dates.
   useEffect(() => {
-    if (datesInitialized || !selectedDevice || !availableCaches.length) return;
+    if (datesTouched || !selectedDevice || !availableCaches.length) return;
     const hit = availableCaches.find((r) => r.devices.includes(selectedDevice));
     if (hit?.startday && hit?.endday) {
       setStartDate(hit.startday);
       setEndDate(hit.endday);
-      setDatesInitialized(true);
     }
-  }, [selectedDevice, availableCaches, datesInitialized]);
+  }, [selectedDevice, availableCaches, datesTouched]);
 
   const load = async () => {
-    if (!selectedDevice) return;
+    if (!selectedDevice || !startDate || !endDate) {
+      setError("Choose a device and a From / To date.");
+      return;
+    }
     setLoading(true);
     setError("");
     setSelectedIdx(null);
@@ -306,8 +308,14 @@ export default function DailyFuelPanel() {
         onDeviceChange={setSelectedDevice}
         startDate={startDate}
         endDate={endDate}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
+        onStartDateChange={(v) => {
+          setDatesTouched(true);
+          setStartDate(v);
+        }}
+        onEndDateChange={(v) => {
+          setDatesTouched(true);
+          setEndDate(v);
+        }}
         onSubmit={load}
         loading={loading || loadingDevices}
         searchQuery={searchQuery}

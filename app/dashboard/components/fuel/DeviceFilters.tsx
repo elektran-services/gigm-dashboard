@@ -107,7 +107,7 @@ export default function DeviceFilters({
       <div className="flex flex-wrap gap-2">
         <button
           onClick={onSubmit}
-          disabled={loading || !selectedDevice}
+          disabled={loading || !selectedDevice || !startDate || !endDate}
           className="bg-[#e31d00] hover:bg-[#c41900] text-black font-semibold py-2 px-4 rounded-lg text-sm disabled:opacity-50 border border-[#e31d00]/30"
         >
           {loading ? "Loading…" : submitLabel}
