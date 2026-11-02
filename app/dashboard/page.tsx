@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { getUserData, clearAuth } from "@/lib/auth";
 import DailyFuelPanel from "./components/fuel/DailyFuelPanel";
+import FuelReportsPanel from "./components/fuel/FuelReportsPanel";
+
+type MenuId = "fuel" | "reports";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userData, setUserData] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<MenuId>("fuel");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
@@ -34,6 +38,43 @@ export default function DashboardPage() {
     );
   }
 
+  const menuItems: Array<{
+    id: MenuId;
+    label: string;
+    icon: ReactNode;
+  }> = [
+    {
+      id: "fuel",
+      label: "Fuel Monitoring",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      ),
+    },
+  ];
+
+  const headerLabel = menuItems.find((item) => item.id === activeMenu)?.label ?? "Fuel Monitoring";
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <aside
@@ -51,17 +92,27 @@ export default function DashboardPage() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <div className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#e31d00] text-white font-medium">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-              />
-            </svg>
-            <span>Fuel Monitoring</span>
-          </div>
+          {menuItems.map((item) => {
+            const active = activeMenu === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveMenu(item.id);
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  active
+                    ? "bg-[#e31d00] text-white font-medium"
+                    : "text-gray-300 hover:bg-gray-800 hover:text-white font-normal"
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="px-3 pb-3">
@@ -131,14 +182,14 @@ export default function DashboardPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">Fuel Monitoring</h1>
+          <h1 className="text-xl font-semibold text-gray-900">{headerLabel}</h1>
           <div className="flex items-center gap-2">
             <p className="text-xs font-medium text-gray-900 truncate">{userData.nickname}</p>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-3 lg:p-6">
-          <DailyFuelPanel />
+          {activeMenu === "fuel" ? <DailyFuelPanel /> : <FuelReportsPanel />}
         </main>
       </div>
     </div>

@@ -50,6 +50,7 @@ export type Gps51CacheEntryMeta = {
   savedAt: number;
   ageMs: number;
   status: number;
+  sizeBytes: number;
   devices: string[];
   startday?: string;
   endday?: string;
@@ -118,7 +119,8 @@ export function listGps51CacheEntries(action?: string): Gps51CacheEntryMeta[] {
       const raw = readCacheHeader(path);
       if (!raw) continue;
       const body = raw.body || {};
-      const savedAt = raw.savedAt || statSync(path).mtimeMs;
+      const st = statSync(path);
+      const savedAt = raw.savedAt || st.mtimeMs;
       out.push({
         key: file.replace(/\.json$/, ''),
         path,
@@ -127,6 +129,7 @@ export function listGps51CacheEntries(action?: string): Gps51CacheEntryMeta[] {
         savedAt,
         ageMs: Date.now() - savedAt,
         status: raw.status,
+        sizeBytes: st.size,
         devices: devicesFromBody(body),
         startday: body.startday != null ? String(body.startday) : undefined,
         endday: body.endday != null ? String(body.endday) : undefined,
