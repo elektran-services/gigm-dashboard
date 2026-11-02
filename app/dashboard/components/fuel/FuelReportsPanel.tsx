@@ -18,9 +18,9 @@ type CacheRow = {
 type KindFilter = "all" | "reportoiltime" | "reportoildaily" | "reportoilrecord";
 
 function kindLabel(action: string): string {
-  if (action === "reportoiltime") return "Fuel track";
-  if (action === "reportoildaily") return "Daily fuel";
-  if (action === "reportoilrecord") return "Refuel events";
+  if (action === "reportoiltime") return "Fuel Track (ReportOilTime)";
+  if (action === "reportoildaily") return "Daily Fuel (ReportOilDaily)";
+  if (action === "reportoilrecord") return "Refuel Events (ReportOilRecord)";
   return action;
 }
 
@@ -132,11 +132,8 @@ export default function FuelReportsPanel() {
       <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-black">Saved raw reports</h2>
-            <p className="text-sm text-black/70 mt-0.5">
-              Local GPS51 files only. View what is on this server and download Excel or JSON — no
-              live GPS51 call.
-            </p>
+            <h2 className="text-lg font-semibold text-black">Fuel Report</h2>
+            <p className="text-sm text-black/70 mt-0.5">Comprehensive Fuel Report</p>
           </div>
           <button
             type="button"
@@ -157,9 +154,9 @@ export default function FuelReportsPanel() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-black bg-white"
             >
               <option value="all">All types</option>
-              <option value="reportoiltime">Fuel track (reportoiltime)</option>
-              <option value="reportoildaily">Daily fuel (reportoildaily)</option>
-              <option value="reportoilrecord">Refuel events (reportoilrecord)</option>
+              <option value="reportoiltime">Fuel Track (ReportOilTime)</option>
+              <option value="reportoildaily">Daily Fuel (ReportOilDaily)</option>
+              <option value="reportoilrecord">Refuel Events (ReportOilRecord)</option>
             </select>
           </div>
           <div>
@@ -216,7 +213,6 @@ export default function FuelReportsPanel() {
                   <tr key={row.key} className="border-t border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap">
                       <span className="font-medium">{kindLabel(row.action)}</span>
-                      <div className="text-[11px] text-black/50 font-mono">{row.action}</div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="font-mono text-xs">{deviceid}</div>
@@ -237,24 +233,14 @@ export default function FuelReportsPanel() {
                       {formatBytes(row.sizeBytes)}
                     </td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                      <div className="inline-flex gap-2">
-                        <button
-                          type="button"
-                          disabled={!!busy}
-                          onClick={() => void download(row, "xlsx")}
-                          className="px-3 py-1.5 rounded-lg bg-[#e31d00] text-white text-xs font-semibold disabled:opacity-50"
-                        >
-                          {downloadingKey === `${row.key}:xlsx` ? "…" : "Excel"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!!busy}
-                          onClick={() => void download(row, "json")}
-                          className="px-3 py-1.5 rounded-lg border border-gray-300 text-black text-xs font-semibold disabled:opacity-50 hover:bg-gray-50"
-                        >
-                          {downloadingKey === `${row.key}:json` ? "…" : "JSON"}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        disabled={!!busy}
+                        onClick={() => void download(row, "xlsx")}
+                        className="px-3 py-1.5 rounded-lg bg-[#e31d00] text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        {downloadingKey === `${row.key}:xlsx` ? "…" : "Excel"}
+                      </button>
                     </td>
                   </tr>
                 );

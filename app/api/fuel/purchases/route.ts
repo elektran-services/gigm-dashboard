@@ -6,6 +6,24 @@ import { findBestCachedReport, formatCacheAge, listGps51CacheEntries } from '@/l
 import { loadCachedOiltimeRecords } from '@/lib/fuelOiltimeCache';
 import { getDefaultDevices } from '@/lib/serverAuth';
 
+/** Interpret YYYY-MM-DD + HH:mm as wall clock in GPS51 offset, return UTC ms. */
+function wallClockToUtcMs(ymd: string, hm: string, offsetHours: number): number | null {
+  const dateParts = ymd.split('-').map(Number);
+  const timeParts = String(hm || '00:00').split(':').map(Number);
+  if (dateParts.length < 3 || timeParts.length < 2) return null;
+  const [y, mo, d] = dateParts;
+  const [h, mi, s = 0] = timeParts;
+  if (![y, mo, d, h, mi].every((n) => Number.isFinite(n))) return null;
+  return Date.UTC(y, mo - 1, d, h, mi, Number.isFinite(s) ? s : 0, 0) - offsetHours * 3600 * 1000;
+}
+
+function rangeEndUtcMs(ymd: string, hm: string, offsetHours: number): number | null {
+  const parts = String(hm || '23:59').split(':');
+  // HTML time is HH:mm — treat as inclusive through that minute.
+  const withSeconds = parts.length >= 3 ? hm : `${parts[0]}:${parts[1] || '59'}:59`;
+  return wallClockToUtcMs(ymd, withSeconds, offsetHours);
+}
+
 export type PurchaseOut = {
   index: number;
   whenIso: string;
@@ -41,6 +59,8 @@ export async function POST(request: NextRequest) {
         : getDefaultDevices();
     const startday = String(body.startday || '');
     const endday = String(body.endday || '');
+    const starttimeOfDay = String(body.starttime || '00:00');
+    const endtimeOfDay = String(body.endtime || '23:59');
     const offset = Number(body.offset ?? APP_CONFIG.DEFAULT_OFFSET);
     // Tiny noise floor only — do not enforce a minimum purchase size
     const minJumpL = Number(body.minJumpL ?? 1.5);
@@ -48,6 +68,15 @@ export async function POST(request: NextRequest) {
     if (!devices.length || !startday || !endday) {
       return NextResponse.json(
         { status: 1, cause: 'devices, startday, endday are required' },
+        { status: 400 }
+      );
+    }
+
+    const rangeStartMs = wallClockToUtcMs(startday, starttimeOfDay, offset);
+    const rangeEndMs = rangeEndUtcMs(endday, endtimeOfDay, offset);
+    if (rangeStartMs == null || rangeEndMs == null || rangeEndMs < rangeStartMs) {
+      return NextResponse.json(
+        { status: 1, cause: 'Invalid From / To date-time range' },
         { status: 400 }
       );
     }
@@ -74,8 +103,12 @@ export async function POST(request: NextRequest) {
       ) || oilrecord.data.records?.[0];
       const nested = ((rec?.records as Record<string, unknown>[]) || []);
       const all = nested.map(mapEventRow);
-      const refuels = all.filter((e) => e.kind === 'refuel');
-      const other = all.filter((e) => e.kind !== 'refuel');
+      const inRange = all.filter((e) => {
+        const t = e.starttime || e.endtime;
+        return t >= rangeStartMs && t <= rangeEndMs;
+      });
+      const refuels = inRange.filter((e) => e.kind === 'refuel');
+      const other = inRange.filter((e) => e.kind !== 'refuel');
 
       if (refuels.length > 0) {
         const purchases: PurchaseOut[] = refuels.map((e, i) => ({
@@ -133,7 +166,9 @@ export async function POST(request: NextRequest) {
         )?.records as Record<string, unknown>[] | undefined) || [];
 
     if ((mergedOiltime && oilRecords.length) || (oiltime && Number(oiltime.data.status) === 0)) {
-      const rawPoints = oilRecords.map(mapTrackPoint);
+      const rawPoints = oilRecords
+        .map(mapTrackPoint)
+        .filter((p) => p.updatetime >= rangeStartMs && p.updatetime <= rangeEndMs);
       const detected = detectAdditionsFromTimeline(rawPoints, {
         minJumpL,
         gapMs: 20 * 60 * 1000,

@@ -42,19 +42,7 @@ type PurchaseLeg = {
   odometerKm: number | null;
   travelledKm: number | null;
   litresUsed: number | null;
-  lPer100: number | null;
-  durationLabel: string | null;
 };
-
-function formatFillDuration(start: number, end: number): string | null {
-  if (!start || !end || end < start) return null;
-  const mins = Math.round((end - start) / 60000);
-  if (mins < 1) return "< 1 min";
-  if (mins < 60) return `${mins} min`;
-  const hours = Math.floor(mins / 60);
-  const rest = mins % 60;
-  return rest ? `${hours} h ${rest} min` : `${hours} h`;
-}
 
 type TankPoint = {
   t: number;
@@ -86,11 +74,12 @@ export default function DailyFuelPanel() {
     loading: loadingDevices,
     error: deviceError,
     exactImei,
-    deviceCount,
   } = useDevices();
   const [selectedDevice, setSelectedDevice] = useState("");
   const [startDate, setStartDate] = useState(ymdDaysAgo(3));
   const [endDate, setEndDate] = useState(todayYmd());
+  const [startTime, setStartTime] = useState("00:00");
+  const [endTime, setEndTime] = useState("23:59");
   const [datesTouched, setDatesTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -164,12 +153,14 @@ export default function DailyFuelPanel() {
     if (hit?.startday && hit?.endday) {
       setStartDate(hit.startday);
       setEndDate(hit.endday);
+      setStartTime("00:00");
+      setEndTime("23:59");
     }
   }, [selectedDevice, availableCaches, datesTouched]);
 
   const load = async () => {
-    if (!selectedDevice || !startDate || !endDate) {
-      setError("Choose a device and a From / To date.");
+    if (!selectedDevice || !startDate || !endDate || !startTime || !endTime) {
+      setError("Choose a device and a From / To date and time.");
       return;
     }
     setLoading(true);
@@ -183,6 +174,8 @@ export default function DailyFuelPanel() {
           devices: [selectedDevice],
           startday: startDate,
           endday: endDate,
+          starttime: startTime,
+          endtime: endTime,
           minJumpL: 1.5,
         }),
       });
@@ -273,17 +266,11 @@ export default function DailyFuelPanel() {
         prevEndOil != null && p.startOilL != null
           ? Number((prevEndOil - p.startOilL).toFixed(2))
           : null;
-      const lPer100 =
-        travelled != null && travelled >= 1 && litresUsed != null && litresUsed > 0
-          ? Number(((litresUsed / travelled) * 100).toFixed(2))
-          : null;
 
       map.set(p.index, {
         odometerKm: odo != null ? Number(odo.toFixed(1)) : null,
         travelledKm: travelled,
         litresUsed,
-        lPer100,
-        durationLabel: formatFillDuration(p.starttime, p.endtime),
       });
 
       if (odo != null) prevOdo = odo;
@@ -291,13 +278,6 @@ export default function DailyFuelPanel() {
     }
     return map;
   }, [purchases, tankSeries]);
-
-  const cacheRangeHint = useMemo(() => {
-    if (!selectedDevice || !availableCaches.length) return "";
-    const hit = availableCaches.find((r) => r.devices.includes(selectedDevice));
-    if (!hit?.startday || !hit?.endday) return "";
-    return `cached: ${hit.startday} to ${hit.endday}`;
-  }, [selectedDevice, availableCaches]);
 
   return (
     <div className="space-y-4 text-black">
@@ -308,6 +288,8 @@ export default function DailyFuelPanel() {
         onDeviceChange={setSelectedDevice}
         startDate={startDate}
         endDate={endDate}
+        startTime={startTime}
+        endTime={endTime}
         onStartDateChange={(v) => {
           setDatesTouched(true);
           setStartDate(v);
@@ -316,13 +298,19 @@ export default function DailyFuelPanel() {
           setDatesTouched(true);
           setEndDate(v);
         }}
+        onStartTimeChange={(v) => {
+          setDatesTouched(true);
+          setStartTime(v);
+        }}
+        onEndTimeChange={(v) => {
+          setDatesTouched(true);
+          setEndTime(v);
+        }}
         onSubmit={load}
         loading={loading || loadingDevices}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         submitLabel="Show refuel"
-        cacheRange={cacheRangeHint}
-        deviceCount={deviceCount}
       />
 
       {(error || deviceError) && (
@@ -344,9 +332,8 @@ export default function DailyFuelPanel() {
             </p>
             <p className="text-sm mt-1">
               {selected.whenIso ? selected.whenIso.replace("T", " ").slice(0, 19) : "—"}
-              {leg?.durationLabel ? ` · fill ${leg.durationLabel}` : ""}
             </p>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
               <p>
                 <span className="block text-xs text-black/60">Mileage</span>
                 <span className="font-semibold">{formatKm(leg?.odometerKm, 1)}</span>
@@ -360,12 +347,6 @@ export default function DailyFuelPanel() {
               <p>
                 <span className="block text-xs text-black/60">Litres used</span>
                 <span className="font-semibold">{formatLitres(leg?.litresUsed)}</span>
-              </p>
-              <p>
-                <span className="block text-xs text-black/60">Consumption</span>
-                <span className="font-semibold">
-                  {leg?.lPer100 != null ? `${leg.lPer100.toFixed(2)} L/100 km` : "—"}
-                </span>
               </p>
             </div>
             <p className="text-sm mt-2">
@@ -536,12 +517,70 @@ export default function DailyFuelPanel() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100">
-          <h3 className="font-semibold text-black">Real fuel bought</h3>
-          <p className="text-xs text-black/70 mt-1">
-            Time, litres, place, odometer, and kilometres since the previous fill. Click a green
-            spot or a row for the address.
-          </p>
+        <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-black">Real fuel bought</h3>
+            <p className="text-xs text-black/70 mt-1">
+              Time, litres, place, odometer, and kilometres since the previous fill. Click a green
+              spot or a row for the address.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!purchases.length}
+            onClick={() => {
+              const esc = (v: string | number | null | undefined) => {
+                const s = v == null ? "" : String(v);
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+              };
+              const headers = [
+                "#",
+                "When",
+                "Litres",
+                "Tank before",
+                "Tank after",
+                "Mileage (km)",
+                "Travelled (km)",
+                "Litres used",
+                "Address",
+                "Lat",
+                "Lon",
+              ];
+              const lines = [headers.join(",")];
+              for (const p of purchases) {
+                const leg = mileageByIndex.get(p.index);
+                lines.push(
+                  [
+                    p.index,
+                    p.whenIso ? p.whenIso.replace("T", " ").slice(0, 19) : "",
+                    p.litres,
+                    p.startOilL,
+                    p.endOilL,
+                    leg?.odometerKm ?? "",
+                    leg?.travelledKm ?? "",
+                    leg?.litresUsed ?? "",
+                    addresses[p.index] || "",
+                    p.lat ?? "",
+                    p.lon ?? "",
+                  ]
+                    .map(esc)
+                    .join(",")
+                );
+              }
+              const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `fuel_purchases_${selectedDevice || "device"}_${startDate}_${endDate}.csv`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }}
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-[#e31d00] text-white text-xs font-semibold disabled:opacity-50"
+          >
+            Export CSV
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-black">

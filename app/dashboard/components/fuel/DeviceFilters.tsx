@@ -11,8 +11,12 @@ interface Props {
   onDeviceChange: (id: string) => void;
   startDate: string;
   endDate: string;
+  startTime: string;
+  endTime: string;
   onStartDateChange: (v: string) => void;
   onEndDateChange: (v: string) => void;
+  onStartTimeChange: (v: string) => void;
+  onEndTimeChange: (v: string) => void;
   onSubmit: () => void;
   loading?: boolean;
   searchQuery: string;
@@ -20,8 +24,6 @@ interface Props {
   submitLabel?: string;
   onExportExcel?: () => void;
   exporting?: boolean;
-  deviceCount?: number;
-  cacheRange?: string;
 }
 
 const inputClass =
@@ -33,8 +35,12 @@ export default function DeviceFilters({
   onDeviceChange,
   startDate,
   endDate,
+  startTime,
+  endTime,
   onStartDateChange,
   onEndDateChange,
+  onStartTimeChange,
+  onEndTimeChange,
   onSubmit,
   loading,
   searchQuery,
@@ -42,24 +48,14 @@ export default function DeviceFilters({
   submitLabel = "Load report",
   onExportExcel,
   exporting,
-  deviceCount,
-  cacheRange,
 }: Props) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-black">
-          Search by <span className="font-semibold">IMEI</span> or vehicle name
-          {typeof deviceCount === "number" ? (
-            <span className="text-black/70"> · {deviceCount} devices on account</span>
-          ) : null}
-          {cacheRange && <span className="text-black/60"> · {cacheRange}</span>}
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
         <div className="xl:col-span-2">
-          <label className="block text-xs font-medium text-black mb-1">IMEI / name search</label>
+          <label className="block text-xs font-medium text-black mb-1">
+            Search : IMEI or Plate Number
+          </label>
           <input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -92,6 +88,12 @@ export default function DeviceFilters({
             onChange={(e) => onStartDateChange(e.target.value)}
             className={inputClass}
           />
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => onStartTimeChange(e.target.value)}
+            className={`${inputClass} mt-1`}
+          />
         </div>
         <div>
           <label className="block text-xs font-medium text-black mb-1">To</label>
@@ -101,13 +103,19 @@ export default function DeviceFilters({
             onChange={(e) => onEndDateChange(e.target.value)}
             className={inputClass}
           />
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => onEndTimeChange(e.target.value)}
+            className={`${inputClass} mt-1`}
+          />
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <button
           onClick={onSubmit}
-          disabled={loading || !selectedDevice || !startDate || !endDate}
+          disabled={loading || !selectedDevice || !startDate || !endDate || !startTime || !endTime}
           className="bg-[#e31d00] hover:bg-[#c41900] text-white font-semibold py-2 px-4 rounded-lg text-sm disabled:opacity-50 border border-[#e31d00]/30"
         >
           {loading ? "Loading…" : submitLabel}

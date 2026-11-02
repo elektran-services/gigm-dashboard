@@ -135,7 +135,7 @@ export default function DashboardPage() {
         <div className="mt-auto px-3 pb-4 text-left border-t border-gray-700 pt-4">
           <p className="text-xs text-gray-400 mb-1">© {new Date().getFullYear()}</p>
           <p className="text-xs text-gray-500">Powered by</p>
-          <p className="text-xs text-gray-300 font-medium">SafeTrack Technologies</p>
+          <p className="text-xs text-gray-300 font-bold">SafeTrack Technologies | SafePRO Services</p>
         </div>
       </aside>
 
@@ -184,7 +184,7 @@ export default function DashboardPage() {
           </button>
           <h1 className="text-xl font-semibold text-gray-900">{headerLabel}</h1>
           <div className="flex items-center gap-2">
-            <p className="text-xs font-medium text-gray-900 truncate">{userData.nickname}</p>
+            <p className="text-xs font-bold text-gray-900 truncate">{userData.nickname}</p>
           </div>
         </header>
 

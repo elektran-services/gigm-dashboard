@@ -75,82 +75,110 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Left Column - Write-up Section */}
       <div
-        className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center"
+        className="hidden lg:flex lg:w-1/2 px-10 py-8 flex-col justify-center overflow-hidden"
         style={{ backgroundColor: "#e5e7eb", backgroundImage: "none" }}
       >
-        <div className="max-w-xl mx-auto text-gray-900">
-          <div className="mb-8">
+        <div className="max-w-xl mx-auto text-gray-900 w-full">
+          <div className="mb-5">
             <Image
               src="/gigmotors_logo.jpg"
               alt="GIGMotors Logo"
               width={200}
               height={60}
               priority
-              className="h-16 w-auto"
+              className="h-12 w-auto"
             />
           </div>
-          <h1 className="text-5xl font-bold mb-6 text-gray-900">
+          <h1 className="text-3xl xl:text-4xl font-bold mb-3 text-gray-900 leading-tight">
             Welcome to GIGMotors Dashboard
           </h1>
-          <p className="text-xl mb-6 text-gray-800">
-            Your comprehensive solution for managing and monitoring your operations with real-time insights and analytics.
+          <p className="text-base mb-6 text-gray-800">
+            Fuel monitoring for your fleet — tank levels, real refuels, mileage, and downloadable
+            reports in one place.
           </p>
           <div className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Real-time Analytics</h3>
-                <p className="text-gray-800">Monitor your business metrics and KPIs in real-time with interactive dashboards.</p>
+                <h3 className="font-semibold text-base mb-0.5">Fuel Monitoring</h3>
+                <p className="text-sm text-gray-800">
+                  View tank level by Total Mileage, spot real station fills, and open purchase
+                  addresses on the map.
+                </p>
               </div>
             </div>
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Secure Access</h3>
-                <p className="text-gray-800">Enterprise-grade security with encrypted data transmission and secure authentication.</p>
+                <h3 className="font-semibold text-base mb-0.5">Fuel Report</h3>
+                <p className="text-sm text-gray-800">
+                  Open past fuel history by date and download clear Excel reports for audits,
+                  reviews, and team sharing.
+                </p>
               </div>
             </div>
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Fast Performance</h3>
-                <p className="text-gray-800">Lightning-fast load times and smooth interactions for optimal user experience.</p>
+                <h3 className="font-semibold text-base mb-0.5">Daily Fuel Capture</h3>
+                <p className="text-sm text-gray-800">
+                  Each day&apos;s fuel activity is recorded automatically, so your records stay
+                  complete and ready when you sign in.
+                </p>
               </div>
             </div>
           </div>
+          <p className="mt-8 text-sm font-bold text-gray-900">
+            SafeTrack Technologies | SafePRO Services
+          </p>
         </div>
       </div>
 
       {/* Right Column - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-8 bg-white overflow-hidden">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="flex justify-center items-center mb-4">
+          <div className="text-center mb-6">
+            <div className="flex justify-center items-center mb-3">
               <div className="inline-flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-linear-to-br from-[#e31d00] to-[#c41900] flex items-center justify-center">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-11 h-11 rounded-lg bg-linear-to-br from-[#e31d00] to-[#c41900] flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900">Sign In</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Sign In</h1>
               </div>
             </div>
-            <p className="text-gray-600">Enter your credentials to access your dashboard</p>
+            <p className="text-gray-600 text-sm">Enter your credentials to access fuel monitoring</p>
           </div>
 
           {error && (
@@ -164,7 +192,7 @@ function LoginForm() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
                 Username
@@ -211,11 +239,11 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[#e31d00] hover:bg-[#c41900] text-gray-900 font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#e31d00] hover:bg-[#c41900] text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
