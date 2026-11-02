@@ -320,7 +320,7 @@ export default function DailyFuelPanel() {
         loading={loading || loadingDevices}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        submitLabel="Show purchases (local only)"
+        submitLabel="Show refuel"
         cacheRange={cacheRangeHint}
         deviceCount={deviceCount}
       />
@@ -530,7 +530,7 @@ export default function DailyFuelPanel() {
           <div className="h-full flex items-center justify-center text-black/60 text-sm px-6 text-center">
             {loading
               ? "Loading…"
-              : "Select a device and date range, then click Show purchases."}
+              : "Select a device and date range, then click Show refuel."}
           </div>
         )}
       </div>

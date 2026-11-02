@@ -51,7 +51,7 @@ export default function DashboardPage() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <div className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#e31d00] text-gray-900 font-medium">
+          <div className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#e31d00] text-white font-medium">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

@@ -108,7 +108,7 @@ export default function DeviceFilters({
         <button
           onClick={onSubmit}
           disabled={loading || !selectedDevice || !startDate || !endDate}
-          className="bg-[#e31d00] hover:bg-[#c41900] text-black font-semibold py-2 px-4 rounded-lg text-sm disabled:opacity-50 border border-[#e31d00]/30"
+          className="bg-[#e31d00] hover:bg-[#c41900] text-white font-semibold py-2 px-4 rounded-lg text-sm disabled:opacity-50 border border-[#e31d00]/30"
         >
           {loading ? "Loading…" : submitLabel}
         </button>
