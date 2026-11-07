@@ -102,6 +102,8 @@ function isTokenExpired(data: any): boolean {
   return (
     cause.includes('token_expire') ||
     cause.includes('global_error_token_expire') ||
+    cause.includes('global_error_not_find_token') ||
+    cause.includes('not_find_token') ||
     cause === 'please login' ||
     data.status === 401
   );
