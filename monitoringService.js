@@ -1,11 +1,17 @@
 /**
  * Fuel monitoring service (fuel cron only).
- * Logs into GPS51 with MONITOR_USERNAME + MONITOR_PASSWORD, then runs the daily
- * fuel download into .cache/gps51. Mileage / idle-stop crons are disabled.
+ *
+ * GPS51 login rules:
+ * - Token valid 24 hours
+ * - Prefer one login every ~23 hours
+ * - Do not login frequently
+ *
+ * Mileage / idle-stop crons are disabled.
  */
 
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(process.cwd(), '.env.production') });
 require('dotenv').config({ path: path.join(process.cwd(), '.env.local'), override: true });
 
@@ -19,11 +25,19 @@ const GPS51_SERVER_ID = process.env.NEXT_PUBLIC_GPS51_SERVER_ID || '2';
 /** Daily fuel track — 04:30 server local time (previous calendar day). */
 const FUEL_CRON = process.env.FUEL_CRON || '30 4 * * *';
 
+/** GPS51: token lasts 24h — refresh once near 23h, not on every job. */
+const TOKEN_TTL_MS = 23 * 60 * 60 * 1000;
+/** Prevent login thrash if API keeps rejecting. */
+const FORCE_LOGIN_COOLDOWN_MS = 10 * 60 * 1000;
+const SESSION_FILE = path.join(process.cwd(), '.cache', 'monitor_gps51_session.json');
+
 let credentials = {
-  token: process.env.MONITOR_TOKEN || '',
+  token: '',
   username: process.env.MONITOR_USERNAME || '',
   password: process.env.MONITOR_PASSWORD || '',
+  loggedAt: 0,
 };
+let lastForceLoginAt = 0;
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -33,7 +47,6 @@ const rl = readline.createInterface({
 function normalizePassword(raw) {
   const value = String(raw || '').trim();
   if (!value) return '';
-  // Already MD5 hex
   if (/^[a-f0-9]{32}$/i.test(value)) return value.toLowerCase();
   return crypto.createHash('md5').update(value, 'utf8').digest('hex');
 }
@@ -53,6 +66,53 @@ function isTokenExpired(data) {
   );
 }
 
+function formatAge(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return `${h}h ${m}m`;
+}
+
+function sessionAgeMs() {
+  return credentials.loggedAt ? Date.now() - credentials.loggedAt : Number.POSITIVE_INFINITY;
+}
+
+function hasFreshToken() {
+  return Boolean(credentials.token && credentials.loggedAt && sessionAgeMs() < TOKEN_TTL_MS);
+}
+
+function loadSessionFile() {
+  try {
+    if (!fs.existsSync(SESSION_FILE)) return;
+    const raw = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    if (!raw?.token || !raw?.loggedAt) return;
+    credentials.token = String(raw.token);
+    credentials.username = String(raw.username || credentials.username);
+    credentials.loggedAt = Number(raw.loggedAt) || 0;
+  } catch (error) {
+    console.warn(`⚠ Could not read session file: ${error.message}`);
+  }
+}
+
+function saveSessionFile() {
+  try {
+    fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true });
+    fs.writeFileSync(
+      SESSION_FILE,
+      JSON.stringify(
+        {
+          token: credentials.token,
+          username: credentials.username,
+          loggedAt: credentials.loggedAt,
+        },
+        null,
+        2
+      )
+    );
+  } catch (error) {
+    console.warn(`⚠ Could not save session file: ${error.message}`);
+  }
+}
+
 async function loginGps51() {
   const username = credentials.username;
   const password = normalizePassword(credentials.password);
@@ -64,7 +124,7 @@ async function loginGps51() {
     throw new Error('MONITOR_PASSWORD is not set in .env.local (plain or MD5 hex)');
   }
 
-  console.log(`🔐 Logging in to GPS51 as ${username}…`);
+  console.log(`🔐 GPS51 action=login as ${username} (token valid 24h; refresh ~23h)…`);
   const response = await fetch(`${GPS51_BASE}?action=login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -85,14 +145,39 @@ async function loginGps51() {
   credentials.token = String(data.token);
   credentials.username = String(data.username || username);
   credentials.password = password;
-  console.log('✓ GPS51 login OK — fresh token ready');
+  credentials.loggedAt = Date.now();
+  saveSessionFile();
+  console.log('✓ GPS51 login OK — token cached for ~23h');
+  return credentials.token;
+}
+
+/**
+ * Reuse token until ~23h old. Login only when missing/stale, or force after API rejection.
+ */
+async function ensureSession(force = false) {
+  if (!force && hasFreshToken()) {
+    console.log(
+      `✓ Reusing GPS51 token (age ${formatAge(sessionAgeMs())}; next login after 23h)`
+    );
+    return credentials.token;
+  }
+
+  if (force) {
+    if (Date.now() - lastForceLoginAt < FORCE_LOGIN_COOLDOWN_MS) {
+      console.warn('⚠ Forced login skipped — 10m cooldown (do not login too frequently)');
+      return credentials.token || null;
+    }
+    lastForceLoginAt = Date.now();
+  }
+
+  await loginGps51();
   return credentials.token;
 }
 
 async function refreshToken() {
   try {
-    await loginGps51();
-    return true;
+    await ensureSession(true);
+    return Boolean(credentials.token);
   } catch (error) {
     console.error(`✗ Token refresh failed: ${error.message}`);
     return false;
@@ -102,15 +187,21 @@ async function refreshToken() {
 async function ensureCredentials() {
   credentials.username = credentials.username || process.env.MONITOR_USERNAME || '';
   credentials.password = credentials.password || process.env.MONITOR_PASSWORD || '';
-  credentials.token = credentials.token || process.env.MONITOR_TOKEN || '';
+  loadSessionFile();
+
+  // Prefer env MONITOR_TOKEN only if we have no cached session yet
+  if (!credentials.token && process.env.MONITOR_TOKEN) {
+    credentials.token = process.env.MONITOR_TOKEN;
+    credentials.loggedAt = 0; // unknown age → ensureSession will login if password set
+  }
 
   if (credentials.username && credentials.password) {
-    await loginGps51();
+    await ensureSession(false);
     return;
   }
 
   if (credentials.username && credentials.token) {
-    console.log('⚠ MONITOR_PASSWORD missing — using MONITOR_TOKEN only (no auto-refresh)\n');
+    console.log('⚠ MONITOR_PASSWORD missing — using token only (no auto-refresh)\n');
     return;
   }
 
@@ -120,7 +211,7 @@ async function ensureCredentials() {
         try {
           credentials.username = username.trim();
           credentials.password = password.trim();
-          await loginGps51();
+          await ensureSession(true);
           resolve();
         } catch (error) {
           reject(error);
@@ -175,9 +266,10 @@ async function runFuelScheduled(reportDate = null) {
   console.log(`\n[FuelScheduled] ${timeStr}${reportDate ? ` reportDate=${reportDate}` : ' (yesterday)'}`);
 
   try {
-    if (!credentials.token) {
-      const ok = await refreshToken();
-      if (!ok) return;
+    const token = await ensureSession(false);
+    if (!token) {
+      console.error('[FuelScheduled] No GPS51 token available');
+      return;
     }
 
     const requestBody = {
@@ -189,7 +281,7 @@ async function runFuelScheduled(reportDate = null) {
     let data = await postJson(`${API_URL}/api/fuel/scheduled`, requestBody);
 
     if (isTokenExpired(data)) {
-      console.log('[FuelScheduled] Token rejected by GPS51 — refreshing and retrying…');
+      console.log('[FuelScheduled] Token rejected — one login retry (GPS51 24h rule)…');
       const refreshed = await refreshToken();
       if (!refreshed) {
         console.error('[FuelScheduled] Token refresh failed; skipping.');
@@ -247,6 +339,7 @@ async function startService() {
   console.log('╚══════════════════════════════════════════════════════════╝\n');
   console.log('Configuration:');
   console.log(`  - Fuel cron: ${FUEL_CRON} (yesterday reportoiltime → .cache/gps51/)`);
+  console.log('  - Login: action=login once per ~23h (token valid 24h)');
   console.log('  - Mileage / idle-stop / overspeed / trips / offline / parking: DISABLED');
   console.log(`  - GPS51: ${GPS51_BASE} (serverid=${GPS51_SERVER_ID})`);
   console.log(`  - API URL: ${API_URL}\n`);
@@ -269,10 +362,8 @@ async function startService() {
     lastFuelCronStart = t;
     console.log(`\n🔔 [CRON fuel] START ${t} — ${FUEL_CRON}`);
     try {
-      // Always re-login before the daily run so a stale MONITOR_TOKEN cannot block it
-      if (credentials.password) {
-        await loginGps51();
-      }
+      // Reuse token unless ≥23h old — do NOT login every day blindly
+      await ensureSession(false);
       await runFuelScheduled();
       console.log(`✅ [CRON fuel] END ${new Date().toLocaleString()}`);
     } catch (error) {
@@ -292,9 +383,22 @@ async function startService() {
     } catch {
       /* down */
     }
+
+    // Soft refresh when token age reaches ~23h (recommended), not more often
+    if (credentials.password && !hasFreshToken()) {
+      try {
+        await ensureSession(false);
+      } catch (error) {
+        console.error(`[HEARTBEAT] Login refresh failed: ${error.message}`);
+      }
+    }
+
     console.log(`\n💚 [HEARTBEAT] ${now.toLocaleString()}`);
     console.log(`   🟢 Monitoring: RUNNING (fuel only)`);
     console.log(`   ${nextjsStatus} Next.js`);
+    console.log(
+      `   🔑 Token age ${credentials.loggedAt ? formatAge(sessionAgeMs()) : 'n/a'} (refresh ≥23h)`
+    );
     console.log(
       `   📅 Fuel ${FUEL_CRON} — next ~${formatCountdown(msNextFuel)} — last=${lastFuelCronStart || '—'}`
     );
